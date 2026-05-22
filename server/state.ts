@@ -10,3 +10,14 @@ export const cliSessionToTerminal = new Map<string, string>(); // cli session_id
 export let terminalIdCounter = 0;
 export function nextTerminalId() { return ++terminalIdCounter; }
 export const MAX_OUTPUT_BUFFER = 500; // max chunks to keep for replay
+
+export const GHOST_NAMES = [
+  'Ada', 'Turing', 'Hopper', 'Ritchie', 'Lovelace', 'Shannon',
+  'Dijkstra', 'McCarthy', 'Gosling', 'Guido', 'Wozniak', 'Boole',
+  'Tesla', 'Euler', 'Gauss', 'Feynman', 'Babbage', 'Curie',
+  'Stroustrup', 'Torvalds',
+];
+
+export function generateGhostName(): string {
+  return GHOST_NAMES[Math.floor(Math.random() * GHOST_NAMES.length)];
+}
