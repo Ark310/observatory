@@ -1,6 +1,7 @@
 import type { SessionState, AgentSource } from "./types";
 import { sessions, sessionLogs, terminals } from "./state";
 import { broadcastSessions } from "./broadcast";
+import { cleanupGhostTerminal } from "./terminals";
 
 // If a session's state hasn't been updated by a hook in this long, assume the
 // agent is idle and fall back to "waiting". This prevents characters from being
@@ -12,9 +13,15 @@ export function pruneStale() {
   const cutoff = now - 15 * 60 * 1000;
   let changed = false;
   for (const [id, session] of sessions) {
-    // Don't prune if a terminal is still alive for this session
     if (terminals.has(id)) {
-      // But do reset stale active states back to waiting
+      const term = terminals.get(id)!;
+      // Ghost terminals follow the same 15-minute stale rule as sessions without terminals
+      if (term.ghost && session.lastSeen < cutoff) {
+        cleanupGhostTerminal(id);
+        changed = true;
+        continue;
+      }
+      // For non-ghost terminals, reset stale active states back to waiting
       if (session.state !== "waiting" && (now - session.stateChangedAt) > STATE_STALE_MS) {
         session.state = "waiting";
         session.stateChangedAt = now;

@@ -1,6 +1,7 @@
 import { test, expect, beforeEach } from "bun:test";
-import { generateGhostName, GHOST_NAMES, sessions, wsClients } from "./state";
-import { upsertSession } from "./sessions";
+import { generateGhostName, GHOST_NAMES, sessions, wsClients, terminals, sessionLogs } from "./state";
+import { upsertSession, pruneStale } from "./sessions";
+import type { Terminal } from "./types";
 
 beforeEach(() => {
   sessions.clear();
@@ -35,4 +36,44 @@ test("upsertSession with no name leaves name undefined", () => {
   upsertSession("term-1", "/home/user", "thinking", "claude");
   const session = sessions.get("term-1");
   expect(session?.name).toBeUndefined();
+});
+
+test("pruneStale removes a ghost terminal whose lastSeen is older than 15 minutes", () => {
+  const ghostId = "ghost-stale-123";
+  const staleTime = Date.now() - 16 * 60 * 1000;  // 16 minutes ago
+
+  terminals.set(ghostId, {
+    id: ghostId, cwd: "/home/user", proc: null as any,
+    ghost: true, subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(ghostId, {
+    id: ghostId, cwd: "/home/user", state: "waiting", source: "claude",
+    lastSeen: staleTime, startedAt: staleTime, stateChangedAt: staleTime, name: "Turing",
+  });
+  sessionLogs.set(ghostId, []);
+
+  pruneStale();
+
+  expect(terminals.has(ghostId)).toBe(false);
+  expect(sessions.has(ghostId)).toBe(false);
+  expect(sessionLogs.has(ghostId)).toBe(false);
+});
+
+test("pruneStale does NOT remove a ghost terminal that was active within 15 minutes", () => {
+  const ghostId = "ghost-fresh-456";
+  const recentTime = Date.now() - 5 * 60 * 1000;  // 5 minutes ago
+
+  terminals.set(ghostId, {
+    id: ghostId, cwd: "/home/user", proc: null as any,
+    ghost: true, subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(ghostId, {
+    id: ghostId, cwd: "/home/user", state: "thinking", source: "claude",
+    lastSeen: recentTime, startedAt: recentTime, stateChangedAt: recentTime, name: "Hopper",
+  });
+
+  pruneStale();
+
+  expect(terminals.has(ghostId)).toBe(true);
+  expect(sessions.has(ghostId)).toBe(true);
 });
