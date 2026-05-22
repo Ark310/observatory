@@ -612,6 +612,7 @@
         const active = !['waiting', 'error'].includes(session.state);
         ch = createCharacter(session.id, session.source || session.type || '', seatId, active);
         characters.set(session.id, ch);
+        if (session.name) ch.name = session.name;
         if (seatId) seatAssignments.set(seatId, session.id);
       }
       ch.startedAt = session.startedAt || ch.startedAt || Date.now();
