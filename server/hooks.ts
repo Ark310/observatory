@@ -238,7 +238,7 @@ function autoRegisterGhostSession(sessionId: string, cwd: string, source: string
   terminals.set(ghostId, {
     id: ghostId,
     cwd,
-    proc: null as any,
+    proc: null,
     ghost: true,
     subscribers: new Set(),
     outputBuffer: [],

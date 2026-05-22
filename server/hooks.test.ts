@@ -5,7 +5,7 @@ import { handleHook } from "./hooks";
 import type { Terminal } from "./types";
 
 function makeGhostTerminal(id: string, cwd = "/home/user"): Terminal {
-  return { id, cwd, proc: null as any, ghost: true, subscribers: new Set(), outputBuffer: [] };
+  return { id, cwd, proc: null, ghost: true, subscribers: new Set(), outputBuffer: [] };
 }
 
 beforeEach(() => {

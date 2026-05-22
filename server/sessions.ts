@@ -17,7 +17,7 @@ export function pruneStale() {
       const term = terminals.get(id)!;
       // Ghost terminals follow the same 15-minute stale rule as sessions without terminals
       if (term.ghost && session.lastSeen < cutoff) {
-        cleanupGhostTerminal(id);
+        cleanupGhostTerminal(id, true);  // pruneStale will broadcast once after the loop
         changed = true;
         continue;
       }

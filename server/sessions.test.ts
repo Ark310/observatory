@@ -5,6 +5,8 @@ import type { Terminal } from "./types";
 
 beforeEach(() => {
   sessions.clear();
+  terminals.clear();
+  sessionLogs.clear();
   wsClients.clear();   // prevents broadcast errors
 });
 

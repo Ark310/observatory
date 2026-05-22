@@ -32,7 +32,7 @@ export interface LogEntry {
 export interface Terminal {
   id: string;
   cwd: string;
-  proc: import("bun").Subprocess;
+  proc: import("bun").Subprocess | null;   // null for ghost terminals
   subscribers: Set<import("bun").ServerWebSocket<WsData>>;
   outputBuffer: string[];  // ring buffer of recent output chunks for replay
   ghost?: boolean;

@@ -119,13 +119,13 @@ export function killTerminal(id: string) {
   cleanupTerminal(id);
 }
 
-export function cleanupGhostTerminal(id: string) {
+export function cleanupGhostTerminal(id: string, skipBroadcast = false) {
   terminals.delete(id);
   sessions.delete(id);
   sessionLogs.delete(id);
   for (const [cid, tid] of cliSessionToTerminal) {
     if (tid === id) cliSessionToTerminal.delete(cid);
   }
-  broadcastSessions();
+  if (!skipBroadcast) broadcastSessions();
   console.log(`[terminal] ghost ${id} removed`);
 }
