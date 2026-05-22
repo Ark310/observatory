@@ -20,6 +20,7 @@ export interface Session {
   startedAt: number;
   stateChangedAt: number;
   terminalId?: string;
+  name?: string;
 }
 
 export interface LogEntry {
@@ -34,6 +35,7 @@ export interface Terminal {
   proc: import("bun").Subprocess;
   subscribers: Set<import("bun").ServerWebSocket<WsData>>;
   outputBuffer: string[];  // ring buffer of recent output chunks for replay
+  ghost?: boolean;
 }
 
 export interface WsData {
