@@ -35,7 +35,8 @@ export function upsertSession(
   id: string,
   cwd: string,
   state: SessionState,
-  source?: AgentSource
+  source?: AgentSource,
+  name?: string
 ) {
   const existing = sessions.get(id);
   const now = Date.now();
@@ -45,6 +46,7 @@ export function upsertSession(
     cwd,
     state,
     source: source || existing?.source || "",
+    name: name ?? existing?.name,
     lastSeen: now,
     startedAt: existing?.startedAt ?? now,
     stateChangedAt: stateChanged ? now : (existing?.stateChangedAt ?? now),
