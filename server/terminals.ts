@@ -118,3 +118,14 @@ export function killTerminal(id: string) {
   // Shared cleanup (removes from maps, notifies subscribers, broadcasts)
   cleanupTerminal(id);
 }
+
+export function cleanupGhostTerminal(id: string) {
+  terminals.delete(id);
+  sessions.delete(id);
+  sessionLogs.delete(id);
+  for (const [cid, tid] of cliSessionToTerminal) {
+    if (tid === id) cliSessionToTerminal.delete(cid);
+  }
+  broadcastSessions();
+  console.log(`[terminal] ghost ${id} removed`);
+}
