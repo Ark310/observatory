@@ -1,6 +1,6 @@
 import { basename } from "path";
 import type { SessionState } from "./types";
-import { sessions, terminals, cliSessionToTerminal } from "./state";
+import { sessions, terminals, cliSessionToTerminal, generateGhostName } from "./state";
 import { upsertSession } from "./sessions";
 import { appendLog } from "./broadcast";
 
@@ -231,11 +231,34 @@ export function handleClaudeHookForTerminal(body: Record<string, unknown>) {
   handleHook("claude", body);
 }
 
+function autoRegisterGhostSession(sessionId: string, cwd: string, source: string): string {
+  const ghostId = `ghost-${sessionId.slice(0, 8)}-${Date.now()}`;
+  const name = generateGhostName();
+  terminals.set(ghostId, {
+    id: ghostId,
+    cwd,
+    proc: null as any,
+    ghost: true,
+    subscribers: new Set(),
+    outputBuffer: [],
+  });
+  cliSessionToTerminal.set(sessionId, ghostId);
+  console.log(`[hook] auto-registered ghost ${ghostId} for ${source} session ${sessionId} (${name})`);
+  upsertSession(ghostId, cwd, "thinking", source as import("./types").AgentSource, name);
+  return ghostId;
+}
+
 function processNormalizedHook(hook: NormalizedHook, source: string) {
   const { hookEvent, sessionId, cwd, toolName, toolInput, observatoryTerminalId } = hook;
 
   // Resolve terminal id: use env-injected id, or look up from prior mapping
   let terminalId = observatoryTerminalId || (sessionId ? cliSessionToTerminal.get(sessionId) : "");
+
+  // Auto-register a ghost terminal for unknown external sessions on UserPromptSubmit
+  if ((!terminalId || !terminals.has(terminalId)) && hookEvent === "UserPromptSubmit" && sessionId) {
+    terminalId = autoRegisterGhostSession(sessionId, cwd, source);
+  }
+
   if (!terminalId || !terminals.has(terminalId)) return;
 
   // Establish cli session → terminal mapping on first hook

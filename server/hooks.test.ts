@@ -1,6 +1,7 @@
 import { test, expect, beforeEach } from "bun:test";
-import { sessions, terminals, cliSessionToTerminal, sessionLogs, wsClients } from "./state";
+import { sessions, terminals, cliSessionToTerminal, sessionLogs, wsClients, GHOST_NAMES } from "./state";
 import { cleanupGhostTerminal } from "./terminals";
+import { handleHook } from "./hooks";
 import type { Terminal } from "./types";
 
 function makeGhostTerminal(id: string, cwd = "/home/user"): Terminal {
@@ -28,4 +29,60 @@ test("cleanupGhostTerminal removes ghost from terminals, sessions, sessionLogs, 
   expect(sessions.has(ghostId)).toBe(false);
   expect(sessionLogs.has(ghostId)).toBe(false);
   expect(cliSessionToTerminal.get("cli-session-abc12345")).toBeUndefined();
+});
+
+test("UserPromptSubmit from unknown session auto-registers a ghost terminal", () => {
+  handleHook("claude", {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "external-session-abc",
+    cwd: "/home/user/myproject",
+  });
+
+  expect(sessions.size).toBe(1);
+  expect(terminals.size).toBe(1);
+
+  const session = sessions.values().next().value!;
+  expect(session.state).toBe("thinking");
+  expect(session.source).toBe("claude");
+  expect(session.cwd).toBe("/home/user/myproject");
+  expect(typeof session.name).toBe("string");
+  expect(GHOST_NAMES).toContain(session.name);
+
+  const term = terminals.values().next().value!;
+  expect(term.ghost).toBe(true);
+  expect(term.proc).toBeNull();
+});
+
+test("subsequent hooks reuse the same ghost terminal", () => {
+  handleHook("claude", {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "external-session-def",
+    cwd: "/home/user/project",
+  });
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Read",
+    session_id: "external-session-def",
+    cwd: "/home/user/project",
+  });
+
+  // Still only 1 session and 1 terminal — no duplicates
+  expect(sessions.size).toBe(1);
+  expect(terminals.size).toBe(1);
+
+  const session = sessions.values().next().value!;
+  expect(session.state).toBe("reading");
+});
+
+test("non-UserPromptSubmit hook from unknown session is ignored", () => {
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Read",
+    session_id: "never-seen-session",
+    cwd: "/home/user/project",
+  });
+
+  expect(sessions.size).toBe(0);
+  expect(terminals.size).toBe(0);
 });
