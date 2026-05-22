@@ -86,3 +86,49 @@ test("non-UserPromptSubmit hook from unknown session is ignored", () => {
   expect(sessions.size).toBe(0);
   expect(terminals.size).toBe(0);
 });
+
+test("Stop hook on ghost terminal removes it immediately", () => {
+  // Register a ghost session first
+  handleHook("claude", {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "ghost-stop-session",
+    cwd: "/home/user/project",
+  });
+  expect(sessions.size).toBe(1);
+  expect(terminals.size).toBe(1);
+
+  // Fire Stop
+  handleHook("claude", {
+    hook_event_name: "Stop",
+    session_id: "ghost-stop-session",
+    cwd: "/home/user/project",
+  });
+
+  expect(sessions.size).toBe(0);
+  expect(terminals.size).toBe(0);
+  expect(cliSessionToTerminal.size).toBe(0);
+});
+
+test("Stop hook on real (non-ghost) terminal sets state to waiting, does not remove it", () => {
+  const realId = "term-real-99";
+  // Register a real terminal (ghost: undefined/false)
+  terminals.set(realId, {
+    id: realId, cwd: "/home/user", proc: {} as any,
+    subscribers: new Set(), outputBuffer: [],
+  });
+  cliSessionToTerminal.set("real-cli-session", realId);
+  sessions.set(realId, {
+    id: realId, cwd: "/home/user", state: "thinking", source: "claude",
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+
+  handleHook("claude", {
+    hook_event_name: "Stop",
+    session_id: "real-cli-session",
+    cwd: "/home/user",
+    observatory_terminal_id: realId,
+  });
+
+  expect(terminals.has(realId)).toBe(true);       // terminal stays
+  expect(sessions.get(realId)?.state).toBe("waiting");  // state → waiting
+});

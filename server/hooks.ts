@@ -3,6 +3,7 @@ import type { SessionState } from "./types";
 import { sessions, terminals, cliSessionToTerminal, generateGhostName } from "./state";
 import { upsertSession } from "./sessions";
 import { appendLog } from "./broadcast";
+import { cleanupGhostTerminal } from "./terminals";
 
 // ── Normalized hook shape ───────────────────────────────────────────────────
 // Every CLI normalizer produces this common format.
@@ -298,6 +299,11 @@ function processNormalizedHook(hook: NormalizedHook, source: string) {
   } else if (hookEvent === "PostToolUse") {
     state = "thinking";
   } else if (hookEvent === "Stop") {
+    const term = terminals.get(terminalId);
+    if (term?.ghost) {
+      cleanupGhostTerminal(terminalId);
+      return;
+    }
     state = "waiting";
   }
 
