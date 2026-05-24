@@ -233,3 +233,68 @@ test("PostToolUse Agent is no-op when proxy was already adopted", () => {
 
   expect(sessions.get(proxyId)?.loiteringUntil).toBeUndefined();
 });
+
+test("UserPromptSubmit adopts proxy ghost with matching cwd instead of creating new ghost", () => {
+  // Set up a real terminal with a proxy ghost already created
+  makeRealTerminal("term-adopt-1", "parent-adopt-1", "/proj-adopt");
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    session_id: "parent-adopt-1",
+    cwd: "/proj-adopt",
+    observatory_terminal_id: "term-adopt-1",
+  });
+
+  const beforeCount = terminals.size; // 2: real + proxy
+  const proxyId = [...terminals.keys()].find(k => k.startsWith("agentghost-"))!;
+
+  // Sub-agent fires UserPromptSubmit with its real session_id
+  handleHook("claude", {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "subagent-real-id-1",
+    cwd: "/proj-adopt",
+  });
+
+  // No new terminal created — proxy was adopted
+  expect(terminals.size).toBe(beforeCount);
+  // Sub-agent session maps to the proxy ghost id
+  expect(cliSessionToTerminal.get("subagent-real-id-1")).toBe(proxyId);
+  // Sentinel key is gone
+  expect(cliSessionToTerminal.has("proxy:" + proxyId)).toBe(false);
+  // Ghost state updated to thinking
+  expect(sessions.get(proxyId)?.state).toBe("thinking");
+  // activeSubagentGhostId cleared on parent terminal (PostToolUse won't double-loiter this ghost)
+  expect(terminals.get("term-adopt-1")?.activeSubagentGhostId).toBeUndefined();
+});
+
+test("UserPromptSubmit does not adopt a proxy ghost that is already loitering", () => {
+  makeRealTerminal("term-adopt-2", "parent-adopt-2", "/proj-adopt2");
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    session_id: "parent-adopt-2",
+    cwd: "/proj-adopt2",
+    observatory_terminal_id: "term-adopt-2",
+  });
+  const proxyId = [...terminals.keys()].find(k => k.startsWith("agentghost-"))!;
+
+  // Force the proxy into loitering manually
+  const ps = sessions.get(proxyId)!;
+  ps.loiteringUntil = Date.now() + 30_000;
+  ps.state = "waiting";
+
+  const beforeCount = terminals.size;
+
+  // New sub-agent UserPromptSubmit should create a fresh ghost, not adopt the loitering one
+  handleHook("claude", {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "subagent-new-id",
+    cwd: "/proj-adopt2",
+  });
+
+  // A new ghost was created
+  expect(terminals.size).toBe(beforeCount + 1);
+  expect(cliSessionToTerminal.get("subagent-new-id")).not.toBe(proxyId);
+});

@@ -232,7 +232,32 @@ export function handleClaudeHookForTerminal(body: Record<string, unknown>) {
   handleHook("claude", body);
 }
 
+function findAdoptableGhost(cwd: string): string | null {
+  for (const [id, term] of terminals) {
+    if (!term.ghost) continue;
+    if (term.cwd !== cwd) continue;
+    const s = sessions.get(id);
+    if (s?.loiteringUntil) continue;  // already loitering — don't adopt
+    if (id.startsWith("startup-") || id.startsWith("agentghost-")) return id;
+  }
+  return null;
+}
+
 function autoRegisterGhostSession(sessionId: string, cwd: string, source: string): string {
+  const adoptable = findAdoptableGhost(cwd);
+  if (adoptable) {
+    cliSessionToTerminal.set(sessionId, adoptable);
+    cliSessionToTerminal.delete("proxy:" + adoptable);
+    // Clear activeSubagentGhostId so PostToolUse won't double-loiter this ghost
+    for (const [, term] of terminals) {
+      if (term.activeSubagentGhostId === adoptable) term.activeSubagentGhostId = undefined;
+    }
+    const agentSrc = source as import("./types").AgentSource;
+    upsertSession(adoptable, cwd, "thinking", agentSrc, sessions.get(adoptable)?.name);
+    console.log(`[hook] adopted ghost ${adoptable} for session ${sessionId}`);
+    return adoptable;
+  }
+
   const ghostId = `ghost-${sessionId.slice(0, 8)}-${Date.now()}`;
   const name = generateGhostName();
   terminals.set(ghostId, {
@@ -246,6 +271,8 @@ function autoRegisterGhostSession(sessionId: string, cwd: string, source: string
   cliSessionToTerminal.set(sessionId, ghostId);
   console.log(`[hook] auto-registered ghost ${ghostId} for ${source} session ${sessionId} (${name})`);
   upsertSession(ghostId, cwd, "thinking", source as import("./types").AgentSource, name);
+  const gs = sessions.get(ghostId);
+  if (gs) gs.ghost = true;
   return ghostId;
 }
 
