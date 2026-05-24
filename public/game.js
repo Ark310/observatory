@@ -1239,6 +1239,7 @@
         if (msg.type === 'sessions') {
           allSessions = msg.data || [];
           syncSessions(allSessions);
+          renderSessionsModal();
         } else if (msg.type === 'logs') {
           for (const [id, entries] of Object.entries(msg.data || {})) {
             sessionLogs.set(id, entries);
@@ -1869,6 +1870,136 @@
       handleTerminalResize();
     });
   })();
+
+  // ── Sessions modal ────────────────────────────────────────────────────────
+  const sessionsBtn        = document.getElementById('sessions-btn');
+  const sessionsModal      = document.getElementById('sessions-modal');
+  const sessionsBackdrop   = document.getElementById('sessions-backdrop');
+  const sessionsModalClose = document.getElementById('sessions-modal-close');
+  const sessionsModalBody  = document.getElementById('sessions-modal-body');
+  let sessionsModalOpen = false;
+
+  function openSessionsModal() {
+    sessionsModalOpen = true;
+    sessionsModal.classList.add('open');
+    sessionsBackdrop.classList.add('open');
+    renderSessionsModal();
+  }
+  function closeSessionsModal() {
+    sessionsModalOpen = false;
+    sessionsModal.classList.remove('open');
+    sessionsBackdrop.classList.remove('open');
+  }
+
+  function formatDur(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + 'm';
+    return Math.floor(m / 60) + 'h' + (m % 60) + 'm';
+  }
+
+  async function killSession(id) {
+    await fetch('/api/sessions/' + encodeURIComponent(id), { method: 'DELETE' });
+  }
+
+  function renderSessionsModal() {
+    if (!sessionsModalOpen) return;
+    const now = Date.now();
+    sessionsModalBody.textContent = '';
+
+    const groups = new Map();
+    for (const s of allSessions) {
+      const key = s.cwd || '';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    }
+
+    if (groups.size === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'sessions-modal-empty';
+      empty.textContent = 'No active sessions';
+      sessionsModalBody.appendChild(empty);
+      return;
+    }
+
+    for (const [cwd, group] of groups) {
+      group.sort(function(a, b) {
+        if (!!a.ghost !== !!b.ghost) return a.ghost ? 1 : -1;
+        return (a.startedAt || 0) - (b.startedAt || 0);
+      });
+      const parts = cwd ? cwd.split('/').filter(Boolean) : [];
+      const projectName = parts.length ? parts[parts.length - 1] : '(unknown)';
+
+      const groupEl = document.createElement('div');
+      groupEl.className = 'sess-group';
+
+      const headerEl = document.createElement('div');
+      headerEl.className = 'sess-group-header';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'sess-group-name';
+      nameEl.title = cwd;
+      nameEl.textContent = projectName;
+      headerEl.appendChild(nameEl);
+
+      const killAllBtn = document.createElement('button');
+      killAllBtn.className = 'sess-kill-all';
+      killAllBtn.textContent = 'Kill all';
+      killAllBtn.dataset.ids = group.map(function(s) { return s.id; }).join(',');
+      killAllBtn.addEventListener('click', function() {
+        killAllBtn.dataset.ids.split(',').forEach(function(id) { killSession(id); });
+      });
+      headerEl.appendChild(killAllBtn);
+      groupEl.appendChild(headerEl);
+
+      for (let i = 0; i < group.length; i++) {
+        const s = group[i];
+        const rowEl = document.createElement('div');
+        rowEl.className = 'sess-row';
+
+        const sNameEl = document.createElement('span');
+        sNameEl.className = 'sess-name';
+        sNameEl.textContent = s.name || s.source || s.id.slice(0, 8);
+        rowEl.appendChild(sNameEl);
+
+        if (s.ghost) {
+          const ghostPill = document.createElement('span');
+          ghostPill.className = 'sess-ghost-pill';
+          ghostPill.textContent = 'ghost';
+          rowEl.appendChild(ghostPill);
+        }
+
+        const stateEl = document.createElement('span');
+        const st = s.state || 'waiting';
+        stateEl.className = 'sess-state ' + st;
+        stateEl.textContent = st;
+        rowEl.appendChild(stateEl);
+
+        const durEl = document.createElement('span');
+        durEl.className = 'sess-dur';
+        durEl.textContent = s.startedAt ? formatDur(now - s.startedAt) : '—';
+        rowEl.appendChild(durEl);
+
+        const killBtn = document.createElement('button');
+        killBtn.className = 'sess-kill';
+        killBtn.title = 'Remove';
+        killBtn.textContent = '✕';
+        killBtn.dataset.id = s.id;
+        killBtn.addEventListener('click', function() { killSession(killBtn.dataset.id); });
+        rowEl.appendChild(killBtn);
+
+        groupEl.appendChild(rowEl);
+      }
+      sessionsModalBody.appendChild(groupEl);
+    }
+  }
+
+  sessionsBtn.addEventListener('click', function() {
+    sessionsModalOpen ? closeSessionsModal() : openSessionsModal();
+  });
+  sessionsModalClose.addEventListener('click', closeSessionsModal);
+  sessionsBackdrop.addEventListener('click', closeSessionsModal);
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────
   async function init() {
