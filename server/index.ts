@@ -6,7 +6,7 @@ import type { LogEntry, WsData } from "./types";
 import { sessions, wsClients, sessionLogs, terminals } from "./state";
 import { broadcastSessions } from "./broadcast";
 import { pruneStale } from "./sessions";
-import { spawnTerminal, killTerminal, writeTerminal, resizeTerminal } from "./terminals";
+import { spawnTerminal, killTerminal, writeTerminal, resizeTerminal, cleanupGhostTerminal } from "./terminals";
 import { handleHook } from "./hooks";
 import { serveStatic, readJSON } from "./static";
 import { scanRunningSessions } from "./startup-scan";
@@ -180,6 +180,21 @@ const server = serve<WsData>({
         handleHook(source, body);
         return new Response("{}", { headers: { "Content-Type": "application/json" } });
       });
+    }
+
+    // Delete a session
+    if (req.method === "DELETE" && pathname.startsWith("/api/sessions/")) {
+      const id = decodeURIComponent(pathname.slice("/api/sessions/".length));
+      if (id) {
+        const term = terminals.get(id);
+        if (term?.ghost) {
+          cleanupGhostTerminal(id);
+        } else {
+          sessions.delete(id);
+        }
+        broadcastSessions();
+      }
+      return new Response("{}", { headers: { "Content-Type": "application/json" } });
     }
 
     // Static files

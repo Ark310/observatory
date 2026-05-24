@@ -298,3 +298,23 @@ test("UserPromptSubmit does not adopt a proxy ghost that is already loitering", 
   expect(terminals.size).toBe(beforeCount + 1);
   expect(cliSessionToTerminal.get("subagent-new-id")).not.toBe(proxyId);
 });
+
+test("cleanupGhostTerminal removes all ghost state (DELETE handler contract)", () => {
+  const id = "del-ghost-99";
+  terminals.set(id, {
+    id, cwd: "/tmp", proc: null as any, ghost: true,
+    subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(id, {
+    id, cwd: "/tmp", state: "waiting", source: "claude",
+    ghost: true, lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+  sessionLogs.set(id, []);
+  cliSessionToTerminal.set("some-sess", id);
+
+  cleanupGhostTerminal(id);
+
+  expect(terminals.has(id)).toBe(false);
+  expect(sessions.has(id)).toBe(false);
+  expect(cliSessionToTerminal.get("some-sess")).toBeUndefined();
+});
