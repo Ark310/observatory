@@ -21,6 +21,8 @@ export interface Session {
   stateChangedAt: number;
   terminalId?: string;
   name?: string;
+  ghost?: boolean;          // true for ghost and proxy sessions; never cleared once set
+  loiteringUntil?: number;  // ms timestamp; pruneStale removes ghost when now >= this
 }
 
 export interface LogEntry {
@@ -36,6 +38,7 @@ export interface Terminal {
   subscribers: Set<import("bun").ServerWebSocket<WsData>>;
   outputBuffer: string[];  // ring buffer of recent output chunks for replay
   ghost?: boolean;
+  activeSubagentGhostId?: string;  // proxy ghost ID while Agent tool is running
 }
 
 export interface WsData {
