@@ -2,7 +2,7 @@ import { basename } from "path";
 import type { SessionState } from "./types";
 import { sessions, terminals, cliSessionToTerminal, generateGhostName } from "./state";
 import { upsertSession } from "./sessions";
-import { appendLog } from "./broadcast";
+import { broadcastSessions, appendLog } from "./broadcast";
 import { cleanupGhostTerminal } from "./terminals";
 
 // ── Normalized hook shape ───────────────────────────────────────────────────
@@ -301,7 +301,15 @@ function processNormalizedHook(hook: NormalizedHook, source: string) {
   } else if (hookEvent === "Stop") {
     const term = terminals.get(terminalId);
     if (term?.ghost) {
-      cleanupGhostTerminal(terminalId);
+      const ghostSession = sessions.get(terminalId);
+      if (ghostSession) {
+        const now = Date.now();
+        ghostSession.state = "waiting";
+        ghostSession.loiteringUntil = now + 60_000;
+        ghostSession.stateChangedAt = now;
+        ghostSession.lastSeen = now;
+      }
+      broadcastSessions();
       return;
     }
     state = "waiting";

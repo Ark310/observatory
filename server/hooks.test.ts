@@ -87,8 +87,7 @@ test("non-UserPromptSubmit hook from unknown session is ignored", () => {
   expect(terminals.size).toBe(0);
 });
 
-test("Stop hook on ghost terminal removes it immediately", () => {
-  // Register a ghost session first
+test("Stop hook on ghost terminal enters loitering instead of being removed", () => {
   handleHook("claude", {
     hook_event_name: "UserPromptSubmit",
     session_id: "ghost-stop-session",
@@ -96,17 +95,24 @@ test("Stop hook on ghost terminal removes it immediately", () => {
   });
   expect(sessions.size).toBe(1);
   expect(terminals.size).toBe(1);
+  const [termId] = [...terminals.keys()];
 
-  // Fire Stop
   handleHook("claude", {
     hook_event_name: "Stop",
     session_id: "ghost-stop-session",
     cwd: "/home/user/project",
   });
 
-  expect(sessions.size).toBe(0);
-  expect(terminals.size).toBe(0);
-  expect(cliSessionToTerminal.size).toBe(0);
+  // Terminal and session are still present — loitering, not removed
+  expect(terminals.has(termId)).toBe(true);
+  expect(sessions.size).toBe(1);
+  const s = sessions.get(termId)!;
+  expect(s.state).toBe("waiting");
+  expect(typeof s.loiteringUntil).toBe("number");
+  expect(s.loiteringUntil!).toBeGreaterThan(Date.now() - 1_000);
+  expect(s.loiteringUntil!).toBeLessThanOrEqual(Date.now() + 60_001);
+  // cliSessionToTerminal still maps — don't clean up yet
+  expect(cliSessionToTerminal.size).toBeGreaterThan(0);
 });
 
 test("Stop hook on real (non-ghost) terminal sets state to waiting, does not remove it", () => {

@@ -15,10 +15,20 @@ export function pruneStale() {
   for (const [id, session] of sessions) {
     if (terminals.has(id)) {
       const term = terminals.get(id)!;
-      // Ghost terminals follow the same 15-minute stale rule as sessions without terminals
-      if (term.ghost && session.lastSeen < cutoff) {
-        cleanupGhostTerminal(id, true);  // pruneStale will broadcast once after the loop
-        changed = true;
+      if (term.ghost) {
+        const now = Date.now();
+        // Loitering ghost: remove once the 60-second window expires
+        if (session.loiteringUntil && now >= session.loiteringUntil) {
+          cleanupGhostTerminal(id, true);
+          changed = true;
+          continue;
+        }
+        // Active ghost with no loiteringUntil: fall back to 15-minute stale rule
+        if (!session.loiteringUntil && session.lastSeen < cutoff) {
+          cleanupGhostTerminal(id, true);
+          changed = true;
+          continue;
+        }
         continue;
       }
       // For non-ghost terminals, reset stale active states back to waiting

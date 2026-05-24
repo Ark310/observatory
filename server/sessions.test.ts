@@ -104,3 +104,61 @@ test("upsertSession preserves loiteringUntil across state updates", () => {
 
   expect(sessions.get("ghost-xyz")?.loiteringUntil).toBe(until);
 });
+
+test("pruneStale removes ghost whose loiteringUntil is in the past", () => {
+  const ghostId = "ghost-loiter-past";
+  terminals.set(ghostId, {
+    id: ghostId, cwd: "/p", proc: null as any,
+    ghost: true, subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(ghostId, {
+    id: ghostId, cwd: "/p", state: "waiting", source: "claude",
+    ghost: true,
+    loiteringUntil: Date.now() - 1_000,
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+  sessionLogs.set(ghostId, []);
+
+  pruneStale();
+
+  expect(terminals.has(ghostId)).toBe(false);
+  expect(sessions.has(ghostId)).toBe(false);
+});
+
+test("pruneStale keeps ghost whose loiteringUntil is in the future", () => {
+  const ghostId = "ghost-loiter-future";
+  terminals.set(ghostId, {
+    id: ghostId, cwd: "/p", proc: null as any,
+    ghost: true, subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(ghostId, {
+    id: ghostId, cwd: "/p", state: "waiting", source: "claude",
+    ghost: true,
+    loiteringUntil: Date.now() + 30_000,
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+
+  pruneStale();
+
+  expect(terminals.has(ghostId)).toBe(true);
+  expect(sessions.has(ghostId)).toBe(true);
+});
+
+test("pruneStale still removes ghost with no loiteringUntil after 15 minutes (existing rule)", () => {
+  const ghostId = "ghost-stale-no-loiter";
+  const staleTime = Date.now() - 16 * 60 * 1000;
+  terminals.set(ghostId, {
+    id: ghostId, cwd: "/p", proc: null as any,
+    ghost: true, subscribers: new Set(), outputBuffer: [],
+  } as Terminal);
+  sessions.set(ghostId, {
+    id: ghostId, cwd: "/p", state: "thinking", source: "claude",
+    ghost: true,
+    lastSeen: staleTime, startedAt: staleTime, stateChangedAt: staleTime,
+  });
+  sessionLogs.set(ghostId, []);
+
+  pruneStale();
+
+  expect(terminals.has(ghostId)).toBe(false);
+});
