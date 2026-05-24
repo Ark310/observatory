@@ -371,6 +371,14 @@ function processNormalizedHook(hook: NormalizedHook, source: string) {
         ghostSession.loiteringUntil = now + 60_000;
         ghostSession.stateChangedAt = now;
         ghostSession.lastSeen = now;
+        const loiterExpiry = ghostSession.loiteringUntil;
+        setTimeout(() => {
+          const s = sessions.get(terminalId);
+          if (s?.loiteringUntil === loiterExpiry) {
+            cleanupGhostTerminal(terminalId);
+            broadcastSessions();
+          }
+        }, 60_100);
       }
       broadcastSessions();
       return;
