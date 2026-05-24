@@ -79,3 +79,28 @@ test("pruneStale does NOT remove a ghost terminal that was active within 15 minu
   expect(terminals.has(ghostId)).toBe(true);
   expect(sessions.has(ghostId)).toBe(true);
 });
+
+test("upsertSession preserves ghost flag across state updates", () => {
+  sessions.set("ghost-abc", {
+    id: "ghost-abc", cwd: "/p", state: "thinking", source: "claude",
+    ghost: true,
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+
+  upsertSession("ghost-abc", "/p", "editing", "claude");
+
+  expect(sessions.get("ghost-abc")?.ghost).toBe(true);
+});
+
+test("upsertSession preserves loiteringUntil across state updates", () => {
+  const until = Date.now() + 50_000;
+  sessions.set("ghost-xyz", {
+    id: "ghost-xyz", cwd: "/p", state: "waiting", source: "claude",
+    ghost: true, loiteringUntil: until,
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+
+  upsertSession("ghost-xyz", "/p", "waiting", "claude");
+
+  expect(sessions.get("ghost-xyz")?.loiteringUntil).toBe(until);
+});

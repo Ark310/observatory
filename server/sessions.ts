@@ -57,6 +57,8 @@ export function upsertSession(
     lastSeen: now,
     startedAt: existing?.startedAt ?? now,
     stateChangedAt: stateChanged ? now : (existing?.stateChangedAt ?? now),
+    ghost: existing?.ghost,
+    loiteringUntil: existing?.loiteringUntil,
   });
   broadcastSessions();
 }
