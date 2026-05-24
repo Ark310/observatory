@@ -138,3 +138,98 @@ test("Stop hook on real (non-ghost) terminal sets state to waiting, does not rem
   expect(terminals.has(realId)).toBe(true);       // terminal stays
   expect(sessions.get(realId)?.state).toBe("waiting");  // state → waiting
 });
+
+function makeRealTerminal(termId: string, sessionId: string, cwd = "/proj"): void {
+  terminals.set(termId, {
+    id: termId, cwd, proc: {} as any, subscribers: new Set(), outputBuffer: [],
+  });
+  cliSessionToTerminal.set(sessionId, termId);
+  sessions.set(termId, {
+    id: termId, cwd, state: "thinking", source: "claude",
+    lastSeen: Date.now(), startedAt: Date.now(), stateChangedAt: Date.now(),
+  });
+}
+
+test("PreToolUse Agent on known real terminal creates proxy ghost", () => {
+  makeRealTerminal("term-1", "parent-sess-1");
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    session_id: "parent-sess-1",
+    cwd: "/proj",
+    observatory_terminal_id: "term-1",
+  });
+
+  // One extra terminal/session for the proxy ghost
+  expect(terminals.size).toBe(2);
+  expect(sessions.size).toBe(2);
+  const proxy = [...terminals.values()].find(t => t.ghost && t.id.startsWith("agentghost-"));
+  expect(proxy).toBeDefined();
+  expect(sessions.get(proxy!.id)?.state).toBe("thinking");
+  expect(sessions.get(proxy!.id)?.ghost).toBe(true);
+  // activeSubagentGhostId is set on parent terminal
+  expect(terminals.get("term-1")?.activeSubagentGhostId).toBe(proxy!.id);
+});
+
+test("PostToolUse Agent puts un-adopted proxy ghost into loitering", () => {
+  makeRealTerminal("term-2", "parent-sess-2", "/proj2");
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    session_id: "parent-sess-2",
+    cwd: "/proj2",
+    observatory_terminal_id: "term-2",
+  });
+
+  const proxyId = [...terminals.keys()].find(k => k.startsWith("agentghost-"))!;
+  expect(proxyId).toBeDefined();
+
+  handleHook("claude", {
+    hook_event_name: "PostToolUse",
+    tool_name: "Agent",
+    session_id: "parent-sess-2",
+    cwd: "/proj2",
+    observatory_terminal_id: "term-2",
+  });
+
+  // Proxy still present but loitering
+  expect(terminals.has(proxyId)).toBe(true);
+  const ps = sessions.get(proxyId)!;
+  expect(ps.state).toBe("waiting");
+  expect(typeof ps.loiteringUntil).toBe("number");
+  expect(ps.loiteringUntil!).toBeGreaterThan(Date.now() - 1_000);
+  // activeSubagentGhostId is cleared
+  expect(terminals.get("term-2")?.activeSubagentGhostId).toBeUndefined();
+});
+
+test("PostToolUse Agent is no-op when proxy was already adopted", () => {
+  makeRealTerminal("term-3", "parent-sess-3", "/proj3");
+
+  handleHook("claude", {
+    hook_event_name: "PreToolUse",
+    tool_name: "Agent",
+    session_id: "parent-sess-3",
+    cwd: "/proj3",
+    observatory_terminal_id: "term-3",
+  });
+
+  const proxyId = [...terminals.keys()].find(k => k.startsWith("agentghost-"))!;
+
+  // Simulate adoption: sub-agent's UserPromptSubmit removes the sentinel key
+  cliSessionToTerminal.delete("proxy:" + proxyId);
+  // Also clear activeSubagentGhostId (adoption does this)
+  terminals.get("term-3")!.activeSubagentGhostId = undefined;
+
+  // PostToolUse fires — should NOT set loiteringUntil (real Stop hook handles it)
+  handleHook("claude", {
+    hook_event_name: "PostToolUse",
+    tool_name: "Agent",
+    session_id: "parent-sess-3",
+    cwd: "/proj3",
+    observatory_terminal_id: "term-3",
+  });
+
+  expect(sessions.get(proxyId)?.loiteringUntil).toBeUndefined();
+});

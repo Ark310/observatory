@@ -283,7 +283,23 @@ function processNormalizedHook(hook: NormalizedHook, source: string) {
   if (hookEvent === "UserPromptSubmit") {
     state = "thinking";
   } else if (hookEvent === "PreToolUse") {
-    if (/^askuserquestion$/i.test(toolName)) {
+    if (/^(agent|dispatch|task)$/i.test(toolName)) {
+      const parentTerm = terminals.get(terminalId);
+      if (parentTerm && !parentTerm.ghost) {
+        const proxyId = `agentghost-${terminalId.slice(0, 8)}-${Date.now()}`;
+        const proxyName = generateGhostName();
+        terminals.set(proxyId, {
+          id: proxyId, cwd, proc: null, ghost: true,
+          subscribers: new Set(), outputBuffer: [],
+        });
+        cliSessionToTerminal.set("proxy:" + proxyId, proxyId);
+        parentTerm.activeSubagentGhostId = proxyId;
+        upsertSession(proxyId, cwd, "thinking", agentSource, proxyName);
+        const ps = sessions.get(proxyId);
+        if (ps) ps.ghost = true;
+      }
+      state = "thinking";
+    } else if (/^askuserquestion$/i.test(toolName)) {
       state = "input";
     } else if (/^(read|grep|glob)/i.test(toolName)) {
       state = "reading";
@@ -297,6 +313,26 @@ function processNormalizedHook(hook: NormalizedHook, source: string) {
       state = "thinking";
     }
   } else if (hookEvent === "PostToolUse") {
+    if (/^(agent|dispatch|task)$/i.test(toolName)) {
+      const parentTerm = terminals.get(terminalId);
+      if (parentTerm?.activeSubagentGhostId) {
+        const proxyId = parentTerm.activeSubagentGhostId;
+        parentTerm.activeSubagentGhostId = undefined;
+        // Only start loitering if the proxy was NOT adopted by the sub-agent's real hooks
+        if (cliSessionToTerminal.has("proxy:" + proxyId)) {
+          cliSessionToTerminal.delete("proxy:" + proxyId);
+          const proxySession = sessions.get(proxyId);
+          if (proxySession) {
+            const now = Date.now();
+            proxySession.state = "waiting";
+            proxySession.loiteringUntil = now + 60_000;
+            proxySession.stateChangedAt = now;
+            proxySession.lastSeen = now;
+          }
+          broadcastSessions();
+        }
+      }
+    }
     state = "thinking";
   } else if (hookEvent === "Stop") {
     const term = terminals.get(terminalId);
