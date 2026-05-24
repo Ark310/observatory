@@ -94,6 +94,12 @@
     { col: 17, row: 16, dir: DIR.LEFT  },
   ];
 
+  // ── Sofa sitting spots for ghost loitering (phase 1: 0–20 s) ─────────────
+  const SOFA_SIT_SPOTS = [
+    { col: 14, row: 12, dir: DIR.DOWN },
+    { col: 15, row: 12, dir: DIR.DOWN },
+  ];
+
   // ── Bubble pixel data ─────────────────────────────────────────────────────
   const BUBBLE_PERMISSION_DATA = {
     palette: { '_': null, 'B': '#555566', 'F': '#EEEEFF', 'A': '#CCA700' },
@@ -480,6 +486,7 @@
       seatTimer: 0,
       stateChangedAt: Date.now(),
       startedAt: Date.now(),
+      ghost: false,
     };
   }
 
@@ -559,15 +566,20 @@
       if (seat) walkTo(ch, seat.col, seat.row, seat.dir);
     }
 
-    // Became inactive → start wander phase (left room if terminal open, lounge otherwise)
+    // Became inactive → ghosts walk to sofa; others wander lounge or left room
     if (wasActive && !ch.isActive) {
       ch.stateChangedAt = Date.now();
       ch.wanderTimer = 0;
-      const termOpen = document.getElementById('terminal-panel').classList.contains('open');
-      const restTiles = termOpen ? buildLeftRoomTiles() : buildLoungeTiles();
-      if (restTiles.length > 0) {
-        const t = restTiles[Math.floor(Math.random() * restTiles.length)];
-        walkTo(ch, t.col, t.row, ch.dir);
+      if (ch.ghost) {
+        const sofaSpot = SOFA_SIT_SPOTS[ch.palette % SOFA_SIT_SPOTS.length];
+        walkTo(ch, sofaSpot.col, sofaSpot.row, sofaSpot.dir);
+      } else {
+        const termOpen = document.getElementById('terminal-panel').classList.contains('open');
+        const restTiles = termOpen ? buildLeftRoomTiles() : buildLoungeTiles();
+        if (restTiles.length > 0) {
+          const t = restTiles[Math.floor(Math.random() * restTiles.length)];
+          walkTo(ch, t.col, t.row, ch.dir);
+        }
       }
     }
 
@@ -617,6 +629,7 @@
       }
       ch.startedAt = session.startedAt || ch.startedAt || Date.now();
       if (session.source && !ch.type) ch.type = session.source;
+      ch.ghost = session.ghost === true;
       applySessionState(ch, session.state);
       // Always use server's stateChangedAt — it's authoritative for timer display
       if (session.stateChangedAt) ch.stateChangedAt = session.stateChangedAt;
@@ -681,6 +694,21 @@
           }
           break;
         }
+        // Ghost loitering: phase 1 (0–20 s) sit on sofa, phase 2 (20–60 s) wander lounge
+        if (ch.ghost) {
+          const elapsed = ch.stateChangedAt ? (Date.now() - ch.stateChangedAt) / 1000 : 0;
+          if (elapsed < 20) {
+            const sofaSpot = SOFA_SIT_SPOTS[ch.palette % SOFA_SIT_SPOTS.length];
+            if (ch.tileCol !== sofaSpot.col || ch.tileRow !== sofaSpot.row) {
+              walkTo(ch, sofaSpot.col, sofaSpot.row, sofaSpot.dir);
+            } else {
+              ch.dir = sofaSpot.dir;
+            }
+            break;
+          }
+          // Phase 2 (elapsed >= 20 s): fall through to normal lounge wander below
+        }
+
         // Inactive — phase 1: wander (0–5 min), phase 2: sleep (5–15 min)
         // When terminal overlay is open, confine to corner zone
         const inactiveSecs = ch.stateChangedAt ? (Date.now() - ch.stateChangedAt) / 1000 : 0;
