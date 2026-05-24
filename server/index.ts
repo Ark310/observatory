@@ -9,6 +9,7 @@ import { pruneStale } from "./sessions";
 import { spawnTerminal, killTerminal, writeTerminal, resizeTerminal } from "./terminals";
 import { handleHook } from "./hooks";
 import { serveStatic, readJSON } from "./static";
+import { scanRunningSessions } from "./startup-scan";
 
 // ── Server ─────────────────────────────────────────────────────────────────
 
@@ -258,3 +259,6 @@ console.log(`  POST http://localhost:7337/hook/claude`);
 console.log(`  POST http://localhost:7337/hook/cursor`);
 console.log(`  POST http://localhost:7337/hook/copilot`);
 console.log(`  POST http://localhost:7337/hook/gemini`);
+
+// Scan for already-running agent sessions so they appear immediately on startup
+scanRunningSessions().catch(() => {});
