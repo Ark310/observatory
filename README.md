@@ -23,6 +23,18 @@ https://github.com/user-attachments/assets/218d64fc-eeb7-44dc-8cad-46de2e3b0d6d
 
 > **Note:** Hook integrations exist for Claude Code, Cursor, Copilot CLI, and Gemini CLI, but **only Claude Code has been thoroughly tested**. Other CLIs should work but may have edge cases.
 
+## 🙋 What I Added (this fork)
+
+This fork extends the upstream Observatory with **27 commits (+4,139 lines)** of new functionality:
+
+- **👻 Ghost terminal session tracking** — when a session ends it doesn't vanish; its pixel character *loiters* with a sit-then-wander animation and is re-adopted by working directory, so a session's presence survives reconnects and brief gaps.
+- **🗂️ Sessions panel** — a grouped, per-session view with one-click kill, backed by a new `DELETE /api/sessions/:id` endpoint.
+- **🔎 Startup process scan** — on boot, already-running agent processes are detected and registered as live ghost sessions, so the dashboard reflects reality immediately instead of only tracking sessions started after launch.
+- **🧪 Test coverage** — new suites: `server/hooks.test.ts`, `server/sessions.test.ts`, `server/startup-scan.test.ts`.
+- **📐 Design & implementation docs** — full specs and plans under `docs/superpowers/`.
+
+> **Credit:** The original project is **[sreyas-endor/observatory](https://github.com/sreyas-endor/observatory)**, itself inspired by **[anthropics/pixel-agents](https://github.com/anthropics/pixel-agents)**. This fork builds on their excellent foundation — all upstream credit remains with them.
+
 ## Prerequisites
 
 - **Node.js 18+** (for the hook script)
