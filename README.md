@@ -10,7 +10,9 @@ Web-based. No desktop app needed.
 
 https://github.com/user-attachments/assets/218d64fc-eeb7-44dc-8cad-46de2e3b0d6d
 
-
+<!-- showcase:banner:start -->
+> 🧭 Part of **Abdul Raqeeb Khatri's portfolio**: [📂 Hub](https://github.com/Ark310/portfolio) · [🌐 Site](https://ark310.github.io) · [💼 Experience](https://github.com/Ark310/experience)
+<!-- showcase:banner:end -->
 
 ## Features
 
@@ -34,6 +36,20 @@ This fork extends the upstream Observatory with **27 commits (+4,139 lines)** of
 - **📐 Design & implementation docs** — full specs and plans under `docs/superpowers/`.
 
 > **Credit:** The original project is **[sreyas-endor/observatory](https://github.com/sreyas-endor/observatory)**, itself inspired by **[anthropics/pixel-agents](https://github.com/anthropics/pixel-agents)**. This fork builds on their excellent foundation — all upstream credit remains with them.
+
+<!-- showcase:why-impact:start -->
+## 💡 Why I Built It
+
+The upstream dashboard only tracked sessions started after it launched, and a session vanished the moment it ended, so the view drifted away from what was actually running.
+
+## 📈 Impact
+
+- Ghost tracking keeps a finished session's character on screen and re-adopts it by working directory, so presence survives reconnects.
+- A startup scan registers agents that were already running, so the dashboard reflects reality from the first second.
+- A sessions panel with one-click kill, plus three new test suites (+4,139 lines in 27 commits).
+
+`+4,139 lines` · `3 new test suites`
+<!-- showcase:why-impact:end -->
 
 ## Prerequisites
 
@@ -305,3 +321,11 @@ observatory/
 - **Gemini CLI**: The `ask_user` hook fires after the user has already answered, not before. [Open issue](https://github.com/google-gemini/gemini-cli/issues/20605).
 - **Copilot CLI**: No global hooks — must be configured per-project.
 - **Codex CLI**: Not supported yet (all tools report as `Bash`, no granularity).
+
+<!-- showcase:footer:start -->
+---
+
+<p align="center"><a href="https://github.com/Ark310/portfolio">← Back to the portfolio hub</a> · <a href="https://ark310.github.io">Interactive site</a> · <a href="https://github.com/Ark310/experience">Experience</a></p>
+
+**Related projects:** [Knowledge Base Assistant](https://github.com/Ark310/knowledge-base-assistant) · [BLNS: Sanctions Screening RAG](https://github.com/Ark310/blns-sanctions-screening-rag) · [Local LLM Setup](https://github.com/Ark310/local-llm-setup)
+<!-- showcase:footer:end -->
